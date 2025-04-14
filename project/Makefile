@@ -1,25 +1,41 @@
-#Target CPU and flags
-CPU     = msp430g2553
-CFLAGS  = -mmcu=$(CPU)
+#CPU and flags
+CPU         = msp430g2553
+CFLAGS      = -mmcu=$(CPU) -I../h
+LDFLAGS     = -L/opt/ti/msp430_gcc/include
 
-#Toolchain definitions
-CC      = msp430-elf-gcc
-AS      = msp430-elf-as
-AR      = msp430-elf-ar
+#Toolchain
+CC          = msp430-elf-gcc
+AS          = msp430-elf-as
+AR          = msp430-elf-ar
+
+#Objects
+COMMON_OBJECTS =
+LIB_OBJECTS     = clocksTimer.o sr.o
+APP_OBJECTS     = main.o p1_interrupt_handler.o
+LIB_NAME        = libTimer.a
+ELF_NAME        = led.elf
 
 #Default target
-all: libTimer.a
+all: $(LIB_NAME) $(ELF_NAME)
 
-#Archive the object files into a static library
-libTimer.a: clocksTimer.o sr.o
+#Build static library
+$(LIB_NAME): $(LIB_OBJECTS)
 	$(AR) crs $@ $^
 
-#Install headers and library to parent directories
-install: libTimer.a
+#Build the final application
+$(ELF_NAME): $(COMMON_OBJECTS) $(APP_OBJECTS) ../lib/$(LIB_NAME)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+
+#Install static library and headers
+install: $(LIB_NAME)
 	mkdir -p ../h ../lib
 	mv $^ ../lib
 	cp *.h ../h
 
+#Load ELF to device
+load: $(ELF_NAME)
+	msp430loader.sh $(ELF_NAME)
+
 #Clean build artifacts
 clean:
-	rm -f libTimer.a *.o
+	rm -f *.o *.elf *.a
