@@ -1,41 +1,40 @@
-#CPU and flags
-CPU         = msp430g2553
-CFLAGS      = -mmcu=$(CPU) -I../h
-LDFLAGS     = -L/opt/ti/msp430_gcc/include
+# === Makefile Configuration ===
+CPU            = msp430g2553
+CC             = msp430-elf-gcc
+AR             = msp430-elf-ar
+AS             = msp430-elf-as
 
-#Toolchain
-CC          = msp430-elf-gcc
-AS          = msp430-elf-as
-AR          = msp430-elf-ar
+CFLAGS         = -mmcu=$(CPU) -I. -I./timerLib -I../h
+LDFLAGS        = -L/opt/ti/msp430_gcc/include
 
-#Objects
 COMMON_OBJECTS =
-LIB_OBJECTS     = clocksTimer.o sr.o
-APP_OBJECTS     = main.o p1_interrupt_handler.o
-LIB_NAME        = libTimer.a
-ELF_NAME        = led.elf
+OBJECTS        = buzzer.o incrementing.o p1_interrupt_handler.o led.o switches.o buttonMain.o
+TIMERLIB_OBJS  = timerLib/clocksTimer.o timerLib/sr.o
+TARGET         = button.elf
+LIBS           = timerLib/libTimer.a
 
-#Default target
-all: $(LIB_NAME) $(ELF_NAME)
+# === Default Target ===
+all: $(TARGET)
 
-#Build static library
-$(LIB_NAME): $(LIB_OBJECTS)
-	$(AR) crs $@ $^
+# === Build libTimer.a from object files ===
+$(LIBS): $(TIMERLIB_OBJS)
+	$(AR) rcs $@ $^
 
-#Build the final application
-$(ELF_NAME): $(COMMON_OBJECTS) $(APP_OBJECTS) ../lib/$(LIB_NAME)
+# === Compile TimerLib Sources ===
+timerLib/clocksTimer.o: timerLib/clocksTimer.c timerLib/clocksTimer.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+timerLib/sr.o: timerLib/sr.s timerLib/sr.h
+	$(AS) -o $@ $<
+
+# === Link the Target ELF ===
+$(TARGET): $(COMMON_OBJECTS) $(OBJECTS) $(LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
-#Install static library and headers
-install: $(LIB_NAME)
-	mkdir -p ../h ../lib
-	mv $^ ../lib
-	cp *.h ../h
+# === Load the Program onto the MSP430 ===
+load: $(TARGET)
+	msp430loader.sh $(TARGET)
 
-#Load ELF to device
-load: $(ELF_NAME)
-	msp430loader.sh $(ELF_NAME)
-
-#Clean build artifacts
+# === Clean Build Artifacts ===
 clean:
-	rm -f *.o *.elf *.a
+	rm -f *.o *.elf timerLib/*.o timerLib/*.a
